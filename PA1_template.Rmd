@@ -1,75 +1,73 @@
 ---
-title: "PA1_template.Rmd"
+title: "Assignment1"
 author: "Youngkeun Yoon"
-date: "2017년 4월 15일"
-output: html_document
+date: "2018-06-22"
+output:
+  html_document: default
+  pdf_document: default
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-### What is mean total number of steps taken per day?
+
+##Code for reading in the dataset and/or processing the data
 ```{r}
 data <- read.csv("activity.csv")
+```
+##Histogram of the total number of steps taken each day
+```{r}
 stepsperdate <- aggregate(steps~date, data, sum, na.rm=TRUE)
-print(stepsperdate)
+head(stepsperdate)
+hist(stepsperdate$steps, breaks=17, main="Total Number of Steps Taken Per day")  
+```
 
-hist(stepsperdate$steps, breaks=17, xlab="Total Number of Steps Taken Per day")  
- 
-
+##Mean and median number of steps taken each day
+```{r}
 median(stepsperdate$steps)
 mean(stepsperdate$steps)
 ```
-### What is the average daily activity pattern?
-
-
+##Time series plot of the average number of steps taken
 ```{r}
-
-avgperinterval <- aggregate(steps~interval, data, mean, na.rm=TRUE)
-plot(avgperinterval, type="l")
-
-avgperinterval[avgperinterval$steps==max(avgperinterval$steps), ]
-
-sum(is.na(data))
+timesteps <- ts(stepsperdate$steps, start=c(2012,10,1), frequency=12)
+plot(timesteps)
 ```
-### Imputing missing values
 
-
+##The 5-minute interval that, on average, contains the maximum number of steps
 ```{r}
-data2 <- data
-narows <- is.na(data2$steps)
-table(narows)
-
-datafornarows <- tapply(data2$steps, data2$interval, mean, na.rm=TRUE, simplify=T)
-data2$steps[narows] <- datafornarows[as.character(data2$interval[narows])]
-
-nonadata <- tapply(data2$steps, data2$date, sum, simplify=T)
-hist(nonadata, breaks=17, xlab="Total Number of Steps Taken Per day(imputed)")
+library(plyr)
+stepsperint <- ddply(data, .(interval), summarise, avgsteps=mean(steps, na.rm=T))
+stepsperint[stepsperint$avgsteps==max(stepsperint$avgsteps), ]
 ```
-Before imputation : Median(10765), Mean(10766.19)
-After imputation : Median(10766.19), Mean(10766.19)
-Imputation caused the median and mean to become identical. 
+##Code to describe and show a strategy for imputing missing data
 ```{r}
-median(nonadata)
-mean(nonadata)
+library(DMwR)
+impdata <- centralImputation(data)
 ```
-### Are there differences in activity patterns between weekdays and weekends?
-I've coded Saturday and Sunday in Korean because of my system default language. 
+##Histogram of the total number of steps taken each day after missing values are imputed
 ```{r}
-
-
-for (i in 1:nrow(data2)) {
-        if (weekdays(as.Date(data2$date[i])) == "토요일" | weekdays(as.Date(data2$date[i])) == "일요일") {
-                data2$daytype[i] = "weekend"
-        } else {
-                data2$daytype[i] = "weekday"
-        }
-}
-
-        
-weekenddata2 <- data2[data2$daytype=="weekend", ]
-tapweekenddata2 <- aggregate(steps~interval, weekenddata2, mean, na.rm=TRUE)
-weekdaydata2 <- data2[data2$daytype=="weekday", ]
-tapweekdaydata2 <- aggregate(steps~interval, weekdaydata2, mean, na.rm=TRUE)
-plot(tapweekenddata2, type="l")
-plot(tapweekdaydata2, type="l")
+impstepsperdate <- aggregate(steps~date, impdata, sum, na.rm=TRUE)
+head(impstepsperdate)
+hist(impstepsperdate$steps, breaks=17, main="Total Number of Steps Taken Per day(imputed)")
 ```
+
+        ##Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+```{r}
+impdata2 <- impdata
+impdata2$date <- as.Date(impdata$date)
+Sys.setlocale("LC_TIME", "us")
+endimpdata <- impdata2[weekdays(impdata2$date)=="Saturday"|weekdays(impdata2$date)=="Sunday",]
+dayimpdata <- impdata[weekdays(impdata2$date)!="Saturday"& weekdays(impdata2$date)!="Sunday",]
+endstepsperint <- ddply(endimpdata, .(interval), summarise, avgsteps=mean(steps, na.rm=T))
+daystepsperint <- ddply(dayimpdata, .(interval), summarise, avgsteps=mean(steps, na.rm=T))
+library(ggplot2)
+library(gridExtra)
+gendstepsperint <- ggplot(endstepsperint) + geom_col(aes(interval, avgsteps)) + labs(title="Steps per 5 minute interval(Weekend)")
+gdaystepsperint <- ggplot(daystepsperint) + geom_col(aes(interval, avgsteps)) + labs(title="Steps per 5 minute interval(Weekday)")
+grid.arrange(gdaystepsperint, gendstepsperint)
+
+```
+
+##All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+#### All R codes are included above. 
+
